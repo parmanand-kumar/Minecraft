@@ -1,10 +1,11 @@
 plugins {
     id 'java'
     id 'application'
+    // id 'https://github.com/parmanand-kumar/Minecraft' // This is not a valid plugin ID
 }
 
+version '7.1.2'
 group 'com.minecraft.prototype'
-version '1.0-SNAPSHOT'
 
 application {
     mainClass.set('com.minecraft.Main')
@@ -24,6 +25,8 @@ jar {
     // This is one way to create a fat JAR.
     // We are collecting all dependencies and packaging them into the JAR.
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(sourceSets.main.output)
+    
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     } {
