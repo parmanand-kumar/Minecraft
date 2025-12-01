@@ -1,0 +1,9 @@
+Plan.md
+.gradle/
+build/
+.idea/
+*.ipr
+*.iml
+*.iws
+out/
+bin/
