@@ -1,10 +1,9 @@
 plugins {
     id 'java'
     id 'application'
-    // id 'https://github.com/parmanand-kumar/Minecraft' // This is not a valid plugin ID
 }
 
-version '7.1.2'
+version '1.0.0'
 group 'com.minecraft.prototype'
 
 application {
@@ -15,51 +14,75 @@ repositories {
     mavenCentral()
 }
 
-// The 'application' plugin already creates a 'run' task.
-// The 'jar' task below is for creating a fat JAR, which is a good practice for distribution.
+// Detect the operating system
+def lwjglNatives = System.getProperty("os.name").toLowerCase().with {
+    if (it.contains("windows")) {
+        return "natives-windows"
+    } else if (it.contains("linux")) {
+        return "natives-linux"
+    } else if (it.contains("mac")) {
+        return "natives-macos"
+    } else {
+        throw new GradleException("Unsupported OS: ${it}")
+    }
+}
+
 jar {
     manifest {
         attributes 'Main-Class': 'com.minecraft.Main'
     }
 
-    // This is one way to create a fat JAR.
-    // We are collecting all dependencies and packaging them into the JAR.
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from(sourceSets.main.output)
     
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     } {
-        // Exclude signature files from dependencies, which can cause security exceptions.
         exclude "META-INF/*.SF"
         exclude "META-INF/*.DSA"
         exclude "META-INF/*.RSA"
     }
 }
 
-// Ensure the 'run' task from the 'application' plugin uses the correct classpath.
 run {
     mainClass = 'com.minecraft.Main'
 }
 
 dependencies {
-    implementation platform('org.lwjgl:lwjgl-bom:3.3.3') // Use the latest stable LWJGL version
+    implementation platform('org.lwjgl:lwjgl-bom:3.3.3')
+    
+    // Core LWJGL modules
     implementation 'org.lwjgl:lwjgl'
-    runtimeOnly 'org.lwjgl:lwjgl::natives-windows' // Or natives-linux, natives-macos, natives-all
-    runtimeOnly 'org.lwjgl:lwjgl-glfw'
+    implementation 'org.lwjgl:lwjgl-glfw'
+    implementation 'org.lwjgl:lwjgl-opengl'
+    implementation 'org.lwjgl:lwjgl-stb'
+    implementation 'org.lwjgl:lwjgl-assimp'
+    implementation 'org.lwjgl:lwjgl-openal'
+    
+    // Include natives for ALL platforms
+    runtimeOnly 'org.lwjgl:lwjgl::natives-windows'
+    runtimeOnly 'org.lwjgl:lwjgl::natives-linux'
+    runtimeOnly 'org.lwjgl:lwjgl::natives-macos'
+    
     runtimeOnly 'org.lwjgl:lwjgl-glfw::natives-windows'
-    runtimeOnly 'org.lwjgl:lwjgl-opengl'
+    runtimeOnly 'org.lwjgl:lwjgl-glfw::natives-linux'
+    runtimeOnly 'org.lwjgl:lwjgl-glfw::natives-macos'
+    
     runtimeOnly 'org.lwjgl:lwjgl-opengl::natives-windows'
-    runtimeOnly 'org.lwjgl:lwjgl-stb'
+    runtimeOnly 'org.lwjgl:lwjgl-opengl::natives-linux'
+    runtimeOnly 'org.lwjgl:lwjgl-opengl::natives-macos'
+    
     runtimeOnly 'org.lwjgl:lwjgl-stb::natives-windows'
-    runtimeOnly 'org.lwjgl:lwjgl-assimp'
+    runtimeOnly 'org.lwjgl:lwjgl-stb::natives-linux'
+    runtimeOnly 'org.lwjgl:lwjgl-stb::natives-macos'
+    
     runtimeOnly 'org.lwjgl:lwjgl-assimp::natives-windows'
-    runtimeOnly 'org.lwjgl:lwjgl-openal'
+    runtimeOnly 'org.lwjgl:lwjgl-assimp::natives-linux'
+    runtimeOnly 'org.lwjgl:lwjgl-assimp::natives-macos'
+    
     runtimeOnly 'org.lwjgl:lwjgl-openal::natives-windows'
-    runtimeOnly 'org.lwjgl:lwjgl-nuklear'
-    runtimeOnly 'org.lwjgl:lwjgl-nuklear::natives-windows'
-    runtimeOnly 'org.lwjgl:lwjgl-opencl'
-    runtimeOnly 'org.lwjgl:lwjgl-vulkan'
+    runtimeOnly 'org.lwjgl:lwjgl-openal::natives-linux'
+    runtimeOnly 'org.lwjgl:lwjgl-openal::natives-macos'
 
     testImplementation platform('org.junit:junit-bom:5.9.1')
     testImplementation 'org.junit.jupiter:junit-jupiter-api'
