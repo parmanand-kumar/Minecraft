@@ -85,26 +85,93 @@ public class Main {
     }
 
     private void loop() {
-        
-        
-        
-        
         GL.createCapabilities();
 
-        
+        // Set the clear color
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
-        
-        
-        while ( !glfwWindowShouldClose(window) ) {
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
+        // Enable depth testing for 3D rendering
+        glEnable(GL_DEPTH_TEST);
 
-            glfwSwapBuffers(window); 
+        // Set up the projection matrix
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        float aspectRatio = 800.0f / 600.0f;
+        glFrustum(-aspectRatio, aspectRatio, -1, 1, 1.0, 100.0);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
 
-            
-            
+        float angle = 0.0f;
+
+        while (!glfwWindowShouldClose(window)) {
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            // Save the current matrix
+            glPushMatrix();
+
+            // Translate and rotate the cube
+            glTranslatef(0.0f, 0.0f, -5.0f);
+            glRotatef(angle, 1.0f, 1.0f, 1.0f);
+
+            // Render the cube
+            drawCube();
+
+            // Restore the matrix
+            glPopMatrix();
+
+            glfwSwapBuffers(window);
             glfwPollEvents();
+
+            // Update the rotation angle
+            angle += 0.5f;
         }
+    }
+    private void drawCube() {
+        glBegin(GL_QUADS);
+
+        // Front face
+        glColor3f(1.0f, 0.0f, 0.0f);
+        glVertex3f(-1.0f, -1.0f, 1.0f);
+        glVertex3f(1.0f, -1.0f, 1.0f);
+        glVertex3f(1.0f, 1.0f, 1.0f);
+        glVertex3f(-1.0f, 1.0f, 1.0f);
+
+        // Back face
+        glColor3f(0.0f, 1.0f, 0.0f);
+        glVertex3f(-1.0f, -1.0f, -1.0f);
+        glVertex3f(-1.0f, 1.0f, -1.0f);
+        glVertex3f(1.0f, 1.0f, -1.0f);
+        glVertex3f(1.0f, -1.0f, -1.0f);
+
+        // Top face
+        glColor3f(0.0f, 0.0f, 1.0f);
+        glVertex3f(-1.0f, 1.0f, -1.0f);
+        glVertex3f(-1.0f, 1.0f, 1.0f);
+        glVertex3f(1.0f, 1.0f, 1.0f);
+        glVertex3f(1.0f, 1.0f, -1.0f);
+
+        // Bottom face
+        glColor3f(1.0f, 1.0f, 0.0f);
+        glVertex3f(-1.0f, -1.0f, -1.0f);
+        glVertex3f(1.0f, -1.0f, -1.0f);
+        glVertex3f(1.0f, -1.0f, 1.0f);
+        glVertex3f(-1.0f, -1.0f, 1.0f);
+
+        // Right face
+        glColor3f(1.0f, 0.0f, 1.0f);
+        glVertex3f(1.0f, -1.0f, -1.0f);
+        glVertex3f(1.0f, 1.0f, -1.0f);
+        glVertex3f(1.0f, 1.0f, 1.0f);
+        glVertex3f(1.0f, -1.0f, 1.0f);
+
+        // Left face
+        glColor3f(0.0f, 1.0f, 1.0f);
+        glVertex3f(-1.0f, -1.0f, -1.0f);
+        glVertex3f(-1.0f, -1.0f, 1.0f);
+        glVertex3f(-1.0f, 1.0f, 1.0f);
+        glVertex3f(-1.0f, 1.0f, -1.0f);
+
+        glEnd();
     }
 
     public static void main(String[] args) {
