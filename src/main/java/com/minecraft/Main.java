@@ -11,10 +11,9 @@ public class Main {
         DisplayManager.createDisplay();
         Camera camera = new Camera(DisplayManager.getWindow());
 
-        
         glEnable(GL_DEPTH_TEST);
 
-        
+        // Set up the projection matrix
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         float aspectRatio = 1280.0f / 720.0f;
@@ -28,7 +27,6 @@ public class Main {
             glLoadIdentity();
             camera.update();
 
-            
             drawCube();
 
             DisplayManager.updateDisplay();
@@ -40,37 +38,37 @@ public class Main {
         glBegin(GL_QUADS);
         glColor3f(1.0f, 0.0f, 0.0f);
 
-        
+        // Front face
         glVertex3f(-1.0f, -1.0f, 1.0f);
         glVertex3f(1.0f, -1.0f, 1.0f);
         glVertex3f(1.0f, 1.0f, 1.0f);
         glVertex3f(-1.0f, 1.0f, 1.0f);
 
-        
+        // Back face
         glVertex3f(-1.0f, -1.0f, -1.0f);
         glVertex3f(-1.0f, 1.0f, -1.0f);
         glVertex3f(1.0f, 1.0f, -1.0f);
         glVertex3f(1.0f, -1.0f, -1.0f);
 
-        
+        // Top face
         glVertex3f(-1.0f, 1.0f, -1.0f);
         glVertex3f(-1.0f, 1.0f, 1.0f);
         glVertex3f(1.0f, 1.0f, 1.0f);
         glVertex3f(1.0f, 1.0f, -1.0f);
 
-        
+        // Bottom face
         glVertex3f(-1.0f, -1.0f, -1.0f);
         glVertex3f(1.0f, -1.0f, -1.0f);
         glVertex3f(1.0f, -1.0f, 1.0f);
         glVertex3f(-1.0f, -1.0f, 1.0f);
 
-        
+        // Right face
         glVertex3f(1.0f, -1.0f, -1.0f);
         glVertex3f(1.0f, 1.0f, -1.0f);
         glVertex3f(1.0f, 1.0f, 1.0f);
         glVertex3f(1.0f, -1.0f, 1.0f);
 
-        
+        // Left face
         glVertex3f(-1.0f, -1.0f, -1.0f);
         glVertex3f(-1.0f, -1.0f, 1.0f);
         glVertex3f(-1.0f, 1.0f, 1.0f);
