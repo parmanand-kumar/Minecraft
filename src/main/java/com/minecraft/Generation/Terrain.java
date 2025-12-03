@@ -61,13 +61,7 @@ public class Terrain {
     }
 
     private void generateChunk(Chunk chunk) {
-        for (int x = 0; x < Chunk.CHUNK_WIDTH; x++) {
-            for (int z = 0; z < Chunk.CHUNK_DEPTH; z++) {
-                for (int y = 0; y < 1; y++) {
-                    chunk.setBlock(x, y, z, new Block(1));
-                }
-            }
-        }
+        chunk.setBlock(0, 0, 0, new Block(1));
     }
 
     private void generateChunkMesh(int chunkX, int chunkZ, List<Float> positions, List<Float> textCoords, List<Integer> indices) {
@@ -87,230 +81,92 @@ public class Terrain {
     private void generateBlockMesh(Chunk chunk, int x, int y, int z, List<Float> positions, List<Float> textCoords, List<Integer> indices) {
         // Front face
         if (chunk.getBlock(x, y, z + 1) == null) {
-            positions.add((float) x);
-            positions.add((float) y);
-            positions.add((float) z + 1);
-            textCoords.add(0.0f);
-            textCoords.add(0.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x + 1);
-            positions.add((float) y);
-            positions.add((float) z + 1);
-            textCoords.add(1.0f);
-            textCoords.add(0.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x + 1);
-            positions.add((float) y + 1);
-            positions.add((float) z + 1);
-            textCoords.add(1.0f);
-            textCoords.add(1.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x);
-            positions.add((float) y + 1);
-            positions.add((float) z + 1);
-            textCoords.add(0.0f);
-            textCoords.add(1.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            indices.add(positions.size() / 3 - 4);
-            indices.add(positions.size() / 3 - 3);
-            indices.add(positions.size() / 3 - 2);
-            indices.add(positions.size() / 3 - 4);
-            indices.add(positions.size() / 3 - 2);
-            indices.add(positions.size() / 3 - 1);
+            int vertex_offset = positions.size() / 3;
+            positions.add((float) x); positions.add((float) y); positions.add((float) z + 1);
+            textCoords.add(0.0f); textCoords.add(0.0f);
+            positions.add((float) x + 1); positions.add((float) y); positions.add((float) z + 1);
+            textCoords.add(1.0f); textCoords.add(0.0f);
+            positions.add((float) x + 1); positions.add((float) y + 1); positions.add((float) z + 1);
+            textCoords.add(1.0f); textCoords.add(1.0f);
+            positions.add((float) x); positions.add((float) y + 1); positions.add((float) z + 1);
+            textCoords.add(0.0f); textCoords.add(1.0f);
+            indices.add(vertex_offset); indices.add(vertex_offset + 1); indices.add(vertex_offset + 2);
+            indices.add(vertex_offset); indices.add(vertex_offset + 2); indices.add(vertex_offset + 3);
         }
 
         // Back face
         if (chunk.getBlock(x, y, z - 1) == null) {
-            positions.add((float) x);
-            positions.add((float) y);
-            positions.add((float) z);
-            textCoords.add(0.0f);
-            textCoords.add(0.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x);
-            positions.add((float) y + 1);
-            positions.add((float) z);
-            textCoords.add(0.0f);
-            textCoords.add(1.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x + 1);
-            positions.add((float) y + 1);
-            positions.add((float) z);
-            textCoords.add(1.0f);
-            textCoords.add(1.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x + 1);
-            positions.add((float) y);
-            positions.add((float) z);
-            textCoords.add(1.0f);
-            textCoords.add(0.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            indices.add(positions.size() / 3 - 4);
-            indices.add(positions.size() / 3 - 3);
-            indices.add(positions.size() / 3 - 2);
-            indices.add(positions.size() / 3 - 4);
-            indices.add(positions.size() / 3 - 2);
-            indices.add(positions.size() / 3 - 1);
+            int vertex_offset = positions.size() / 3;
+            positions.add((float) x); positions.add((float) y); positions.add((float) z);
+            textCoords.add(0.0f); textCoords.add(0.0f);
+            positions.add((float) x); positions.add((float) y + 1); positions.add((float) z);
+            textCoords.add(0.0f); textCoords.add(1.0f);
+            positions.add((float) x + 1); positions.add((float) y + 1); positions.add((float) z);
+            textCoords.add(1.0f); textCoords.add(1.0f);
+            positions.add((float) x + 1); positions.add((float) y); positions.add((float) z);
+            textCoords.add(1.0f); textCoords.add(0.0f);
+            indices.add(vertex_offset); indices.add(vertex_offset + 1); indices.add(vertex_offset + 2);
+            indices.add(vertex_offset); indices.add(vertex_offset + 2); indices.add(vertex_offset + 3);
         }
 
         // Top face
         if (chunk.getBlock(x, y + 1, z) == null) {
-            positions.add((float) x);
-            positions.add((float) y + 1);
-            positions.add((float) z);
-            textCoords.add(0.0f);
-            textCoords.add(0.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x);
-            positions.add((float) y + 1);
-            positions.add((float) z + 1);
-            textCoords.add(0.0f);
-            textCoords.add(1.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x + 1);
-            positions.add((float) y + 1);
-            positions.add((float) z + 1);
-            textCoords.add(1.0f);
-            textCoords.add(1.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x + 1);
-            positions.add((float) y + 1);
-            positions.add((float) z);
-            textCoords.add(1.0f);
-            textCoords.add(0.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            indices.add(positions.size() / 3 - 4);
-            indices.add(positions.size() / 3 - 3);
-            indices.add(positions.size() / 3 - 2);
-            indices.add(positions.size() / 3 - 4);
-            indices.add(positions.size() / 3 - 2);
-            indices.add(positions.size() / 3 - 1);
+            int vertex_offset = positions.size() / 3;
+            positions.add((float) x); positions.add((float) y + 1); positions.add((float) z);
+            textCoords.add(0.0f); textCoords.add(0.0f);
+            positions.add((float) x); positions.add((float) y + 1); positions.add((float) z + 1);
+            textCoords.add(0.0f); textCoords.add(1.0f);
+            positions.add((float) x + 1); positions.add((float) y + 1); positions.add((float) z + 1);
+            textCoords.add(1.0f); textCoords.add(1.0f);
+            positions.add((float) x + 1); positions.add((float) y + 1); positions.add((float) z);
+            textCoords.add(1.0f); textCoords.add(0.0f);
+            indices.add(vertex_offset); indices.add(vertex_offset + 1); indices.add(vertex_offset + 2);
+            indices.add(vertex_offset); indices.add(vertex_offset + 2); indices.add(vertex_offset + 3);
         }
 
         // Bottom face
         if (chunk.getBlock(x, y - 1, z) == null) {
-            positions.add((float) x);
-            positions.add((float) y);
-            positions.add((float) z);
-            textCoords.add(0.0f);
-            textCoords.add(0.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x + 1);
-            positions.add((float) y);
-            positions.add((float) z);
-            textCoords.add(1.0f);
-            textCoords.add(0.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x + 1);
-            positions.add((float) y);
-            positions.add((float) z + 1);
-            textCoords.add(1.0f);
-            textCoords.add(1.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x);
-            positions.add((float) y);
-            positions.add((float) z + 1);
-            textCoords.add(0.0f);
-            textCoords.add(1.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            indices.add(positions.size() / 3 - 4);
-            indices.add(positions.size() / 3 - 3);
-            indices.add(positions.size() / 3 - 2);
-            indices.add(positions.size() / 3 - 4);
-            indices.add(positions.size() / 3 - 2);
-            indices.add(positions.size() / 3 - 1);
+            int vertex_offset = positions.size() / 3;
+            positions.add((float) x); positions.add((float) y); positions.add((float) z);
+            textCoords.add(0.0f); textCoords.add(0.0f);
+            positions.add((float) x + 1); positions.add((float) y); positions.add((float) z);
+            textCoords.add(1.0f); textCoords.add(0.0f);
+            positions.add((float) x + 1); positions.add((float) y); positions.add((float) z + 1);
+            textCoords.add(1.0f); textCoords.add(1.0f);
+            positions.add((float) x); positions.add((float) y); positions.add((float) z + 1);
+            textCoords.add(0.0f); textCoords.add(1.0f);
+            indices.add(vertex_offset); indices.add(vertex_offset + 1); indices.add(vertex_offset + 2);
+            indices.add(vertex_offset); indices.add(vertex_offset + 2); indices.add(vertex_offset + 3);
         }
 
         // Left face
         if (chunk.getBlock(x - 1, y, z) == null) {
-            positions.add((float) x);
-            positions.add((float) y);
-            positions.add((float) z);
-            textCoords.add(0.0f);
-            textCoords.add(0.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x);
-            positions.add((float) y);
-            positions.add((float) z + 1);
-            textCoords.add(1.0f);
-            textCoords.add(0.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x);
-            positions.add((float) y + 1);
-            positions.add((float) z + 1);
-            textCoords.add(1.0f);
-            textCoords.add(1.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x);
-            positions.add((float) y + 1);
-            positions.add((float) z);
-            textCoords.add(0.0f);
-            textCoords.add(1.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            indices.add(positions.size() / 3 - 4);
-            indices.add(positions.size() / 3 - 3);
-            indices.add(positions.size() / 3 - 2);
-            indices.add(positions.size() / 3 - 4);
-            indices.add(positions.size() / 3 - 2);
-            indices.add(positions.size() / 3 - 1);
+            int vertex_offset = positions.size() / 3;
+            positions.add((float) x); positions.add((float) y); positions.add((float) z);
+            textCoords.add(0.0f); textCoords.add(0.0f);
+            positions.add((float) x); positions.add((float) y); positions.add((float) z + 1);
+            textCoords.add(1.0f); textCoords.add(0.0f);
+            positions.add((float) x); positions.add((float) y + 1); positions.add((float) z + 1);
+            textCoords.add(1.0f); textCoords.add(1.0f);
+            positions.add((float) x); positions.add((float) y + 1); positions.add((float) z);
+            textCoords.add(0.0f); textCoords.add(1.0f);
+            indices.add(vertex_offset); indices.add(vertex_offset + 1); indices.add(vertex_offset + 2);
+            indices.add(vertex_offset); indices.add(vertex_offset + 2); indices.add(vertex_offset + 3);
         }
 
         // Right face
         if (chunk.getBlock(x + 1, y, z) == null) {
-            positions.add((float) x + 1);
-            positions.add((float) y);
-            positions.add((float) z);
-            textCoords.add(0.0f);
-            textCoords.add(0.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x + 1);
-            positions.add((float) y + 1);
-            positions.add((float) z);
-            textCoords.add(0.0f);
-            textCoords.add(1.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x + 1);
-            positions.add((float) y + 1);
-            positions.add((float) z + 1);
-            textCoords.add(1.0f);
-            textCoords.add(1.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            positions.add((float) x + 1);
-            positions.add((float) y);
-            positions.add((float) z + 1);
-            textCoords.add(1.0f);
-            textCoords.add(0.0f);
-            indices.add(positions.size() / 3 - 1);
-
-            indices.add(positions.size() / 3 - 4);
-            indices.add(positions.size() / 3 - 3);
-            indices.add(positions.size() / 3 - 2);
-            indices.add(positions.size() / 3 - 4);
-            indices.add(positions.size() / 3 - 2);
-            indices.add(positions.size() / 3 - 1);
+            int vertex_offset = positions.size() / 3;
+            positions.add((float) x + 1); positions.add((float) y); positions.add((float) z);
+            textCoords.add(0.0f); textCoords.add(0.0f);
+            positions.add((float) x + 1); positions.add((float) y + 1); positions.add((float) z);
+            textCoords.add(0.0f); textCoords.add(1.0f);
+            positions.add((float) x + 1); positions.add((float) y + 1); positions.add((float) z + 1);
+            textCoords.add(1.0f); textCoords.add(1.0f);
+            positions.add((float) x + 1); positions.add((float) y); positions.add((float) z + 1);
+            textCoords.add(1.0f); textCoords.add(0.0f);
+            indices.add(vertex_offset); indices.add(vertex_offset + 1); indices.add(vertex_offset + 2);
+            indices.add(vertex_offset); indices.add(vertex_offset + 2); indices.add(vertex_offset + 3);
         }
     }
 }
