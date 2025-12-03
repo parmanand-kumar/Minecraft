@@ -9,7 +9,7 @@ import java.nio.DoubleBuffer;
 public class Camera {
     private float x, y, z;
     private float yaw, pitch;
-    private static final float MOUSE_SENSITIVITY = 0.1f;
+    private static final float MOUSE_SENSITIVITY = 2.0f;
 
     private long window;
     private double lastMouseX, lastMouseY;
