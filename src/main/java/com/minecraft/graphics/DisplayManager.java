@@ -25,6 +25,14 @@ public class DisplayManager {
         GL.createCapabilities();
     }
 
+    public static void handleCursorState(boolean locked) {
+        if (locked) {
+            GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+        } else {
+            GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
+        }
+    }
+
     public static void updateDisplay() {
         GLFW.glfwPollEvents();
         GL11.glClearColor(0.5f, 0.8f, 1.0f, 1.0f);

@@ -2,14 +2,31 @@ package com.minecraft;
 
 import com.minecraft.graphics.Camera;
 import com.minecraft.graphics.DisplayManager;
+import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 
 import static org.lwjgl.opengl.GL11.*;
 
 public class Main {
+    private static boolean cursorLocked = true;
+
     public static void main(String[] args) {
         DisplayManager.createDisplay();
         Camera camera = new Camera(DisplayManager.getWindow());
+
+        GLFW.glfwSetKeyCallback(DisplayManager.getWindow(), (window, key, scancode, action, mods) -> {
+            if (key == GLFW.GLFW_KEY_ESCAPE && action == GLFW.GLFW_PRESS) {
+                cursorLocked = !cursorLocked;
+                DisplayManager.handleCursorState(cursorLocked);
+            }
+        });
+
+        GLFW.glfwSetMouseButtonCallback(DisplayManager.getWindow(), (window, button, action, mods) -> {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && action == GLFW.GLFW_PRESS) {
+                cursorLocked = true;
+                DisplayManager.handleCursorState(cursorLocked);
+            }
+        });
 
         glEnable(GL_DEPTH_TEST);
 
@@ -21,11 +38,13 @@ public class Main {
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
 
+        DisplayManager.handleCursorState(cursorLocked);
+
         while (!DisplayManager.isCloseRequested()) {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             glLoadIdentity();
-            camera.update();
+            camera.update(cursorLocked);
 
             drawCube();
 
