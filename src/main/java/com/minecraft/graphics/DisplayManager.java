@@ -8,6 +8,8 @@ import org.lwjgl.opengl.GL11;
 
 public class DisplayManager {
     private static long window;
+    private static int width;
+    private static int height;
 
     public static void createDisplay() {
         GLFWErrorCallback.createPrint(System.err).set();
@@ -18,10 +20,20 @@ public class DisplayManager {
 
         GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
 
-        window = GLFW.glfwCreateWindow(1280, 720, "Minecraft", 0, 0);
+        GLFWVidMode vidMode = GLFW.glfwGetVideoMode(GLFW.glfwGetPrimaryMonitor());
+        width = vidMode.width();
+        height = vidMode.height();
+
+        window = GLFW.glfwCreateWindow(width, height, "Minecraft", 0, 0);
         if (window == 0) {
             throw new RuntimeException("Failed to create the GLFW window");
         }
+
+        GLFW.glfwSetFramebufferSizeCallback(window, (window, w, h) -> {
+            width = w;
+            height = h;
+            GL11.glViewport(0, 0, w, h);
+        });
 
         GLFW.glfwMakeContextCurrent(window);
         GL.createCapabilities();
@@ -54,24 +66,11 @@ public class DisplayManager {
         return window;
     }
 
-    public static float getAspectRatio() {
-        int[] width = new int[1];
-        int[] height = new int[1];
-        GLFW.glfwGetWindowSize(window, width, height);
-        return (float) width[0] / (float) height[0];
-    }
-
     public static int getWidth() {
-        int[] width = new int[1];
-        int[] height = new int[1];
-        GLFW.glfwGetWindowSize(window, width, height);
-        return width[0];
+        return width;
     }
 
     public static int getHeight() {
-        int[] width = new int[1];
-        int[] height = new int[1];
-        GLFW.glfwGetWindowSize(window, width, height);
-        return height[0];
+        return height;
     }
 }
