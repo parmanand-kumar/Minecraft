@@ -5,6 +5,7 @@ import com.minecraft.graphics.*;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
  
 import static org.lwjgl.opengl.GL11.*;
@@ -69,12 +70,7 @@ public class Main {
  
         Terrain terrain = new Terrain();
         terrain.generateTerrain();
-        Mesh terrainMesh = terrain.generateMesh();
-        try {
-            terrainMesh.setTexture(new TextureHandler("src/main/resources/texture/blocks/dirt.png"));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        Map<String, Mesh> terrainMeshes = terrain.generateMeshes();
 
         while (!DisplayManager.isCloseRequested()) {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -89,7 +85,9 @@ public class Main {
             shaderProgram.setUniform("modelMatrix", new org.joml.Matrix4f().identity()); // Placeholder, will be updated
             shaderProgram.setUniform("texture_sampler", 0);
             
-            terrainMesh.render();
+            for (Mesh mesh : terrainMeshes.values()) {
+                mesh.render();
+            }
             
             camera.update(cursorLocked);
             

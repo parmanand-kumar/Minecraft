@@ -27,6 +27,11 @@ public class Mesh {
     private TextureHandler texture;
 
     public Mesh(float[] positions, float[] textCoords, int[] indices) {
+        this(positions, textCoords, indices, null);
+    }
+
+    public Mesh(float[] positions, float[] textCoords, int[] indices, TextureHandler texture) {
+        this.texture = texture;
         vertexCount = indices.length;
         vboIdList = new ArrayList<>();
 

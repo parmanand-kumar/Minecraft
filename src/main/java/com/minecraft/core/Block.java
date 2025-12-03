@@ -7,7 +7,7 @@ public class Block {
         this.id = id;
     }
 
-    public int getId() {
+    public int getType() {
         return id;
     }
 }

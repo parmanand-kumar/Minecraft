@@ -3,6 +3,10 @@ package com.minecraft.Generation;
 import com.minecraft.core.Block;
 import com.minecraft.core.Chunk;
 import com.minecraft.graphics.Mesh;
+import com.minecraft.graphics.TextureHandler;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,33 +49,46 @@ public class Terrain {
         }
     }
 
-    public Mesh generateMesh() {
-        List<Float> positions = new ArrayList<>();
-        List<Float> textCoords = new ArrayList<>();
-        List<Integer> indices = new ArrayList<>();
+    public Map<String, Mesh> generateMeshes() {
+        Map<String, List<Float>> positionsMap = new HashMap<>();
+        Map<String, List<Float>> textCoordsMap = new HashMap<>();
+        Map<String, List<Integer>> indicesMap = new HashMap<>();
+        Map<String, Mesh> meshes = new HashMap<>();
 
         for (int x = 0; x < TERRAIN_WIDTH; x++) {
             for (int z = 0; z < TERRAIN_DEPTH; z++) {
-                generateChunkMesh(x, z, positions, textCoords, indices);
+                generateChunkMesh(x, z, positionsMap, textCoordsMap, indicesMap);
             }
         }
 
-        float[] posArr = new float[positions.size()];
-        for (int i = 0; i < positions.size(); i++) {
-            posArr[i] = positions.get(i);
-        }
+        for (String texture : positionsMap.keySet()) {
+            List<Float> positions = positionsMap.get(texture);
+            List<Float> textCoords = textCoordsMap.get(texture);
+            List<Integer> indices = indicesMap.get(texture);
 
-        float[] textCoordsArr = new float[textCoords.size()];
-        for (int i = 0; i < textCoords.size(); i++) {
-            textCoordsArr[i] = textCoords.get(i);
-        }
+            float[] posArr = new float[positions.size()];
+            for (int i = 0; i < positions.size(); i++) {
+                posArr[i] = positions.get(i);
+            }
 
-        int[] indicesArr = new int[indices.size()];
-        for (int i = 0; i < indices.size(); i++) {
-            indicesArr[i] = indices.get(i);
-        }
+            float[] textCoordsArr = new float[textCoords.size()];
+            for (int i = 0; i < textCoords.size(); i++) {
+                textCoordsArr[i] = textCoords.get(i);
+            }
 
-        return new Mesh(posArr, textCoordsArr, indicesArr);
+            int[] indicesArr = new int[indices.size()];
+            for (int i = 0; i < indices.size(); i++) {
+                indicesArr[i] = indices.get(i);
+            }
+
+            try {
+                TextureHandler textureHandler = new TextureHandler("src/main/resources/texture/blocks/" + texture + ".png");
+                meshes.put(texture, new Mesh(posArr, textCoordsArr, indicesArr, textureHandler));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return meshes;
     }
 
     private void generateChunk(Chunk chunk, int chunkX, int chunkZ) {
@@ -193,91 +210,115 @@ public class Terrain {
         return a + t * (b - a);
     }
 
-    private void generateChunkMesh(int chunkX, int chunkZ, List<Float> positions, List<Float> textCoords, List<Integer> indices) {
+    private void generateChunkMesh(int chunkX, int chunkZ, Map<String, List<Float>> positionsMap, Map<String, List<Float>> textCoordsMap, Map<String, List<Integer>> indicesMap) {
         Chunk chunk = chunks[chunkX][chunkZ];
         for (int x = 0; x < Chunk.CHUNK_WIDTH; x++) {
             for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++) {
                 for (int z = 0; z < Chunk.CHUNK_DEPTH; z++) {
                     Block block = chunk.getBlock(x, y, z);
                     if (block != null) {
-                        generateBlockMesh(chunkX, chunkZ, x, y, z, positions, textCoords, indices);
+                        generateBlockMesh(chunkX, chunkZ, x, y, z, positionsMap, textCoordsMap, indicesMap);
                     }
                 }
             }
         }
     }
 
-    private void generateBlockMesh(int chunkX, int chunkZ, int x, int y, int z, List<Float> positions, List<Float> textCoords, List<Integer> indices) {
-        // Calculate world position for proper rendering
+    private void generateBlockMesh(int chunkX, int chunkZ, int x, int y, int z, Map<String, List<Float>> positionsMap, Map<String, List<Float>> textCoordsMap, Map<String, List<Integer>> indicesMap) {
         float worldX = chunkX * Chunk.CHUNK_WIDTH + x;
         float worldZ = chunkZ * Chunk.CHUNK_DEPTH + z;
-        
-        // Front face (z+1)
-        addFace(worldX, y, worldZ + 1, worldX + 1, y + 1, worldZ + 1, 
-               0, 0, 1, positions, textCoords, indices);
+        Block block = chunks[chunkX][chunkZ].getBlock(x, y, z);
+        int blockType = block.getType();
 
-        // Back face (z-1)
-        addFace(worldX + 1, y, worldZ, worldX, y + 1, worldZ, 
-               0, 0, -1, positions, textCoords, indices);
+        // Top face
+        String topTexture = getTextureForFace(blockType, 0, 1, 0);
+        addFace(worldX, y + 1, worldZ, worldX + 1, y + 1, worldZ + 1, 0, 1, 0, topTexture, positionsMap, textCoordsMap, indicesMap);
 
-        // Top face (y+1)
-        addFace(worldX, y + 1, worldZ, worldX + 1, y + 1, worldZ + 1, 
-               0, 1, 0, positions, textCoords, indices);
+        // Bottom face
+        String bottomTexture = getTextureForFace(blockType, 0, -1, 0);
+        addFace(worldX, y, worldZ + 1, worldX + 1, y, worldZ, 0, -1, 0, bottomTexture, positionsMap, textCoordsMap, indicesMap);
 
-        // Bottom face (y-1)
-        addFace(worldX, y, worldZ + 1, worldX + 1, y, worldZ, 
-               0, -1, 0, positions, textCoords, indices);
+        // Front face
+        String frontTexture = getTextureForFace(blockType, 0, 0, 1);
+        addFace(worldX, y, worldZ + 1, worldX + 1, y + 1, worldZ + 1, 0, 0, 1, frontTexture, positionsMap, textCoordsMap, indicesMap);
 
-        // Left face (x-1)
-        addFace(worldX, y, worldZ, worldX, y + 1, worldZ + 1, 
-               -1, 0, 0, positions, textCoords, indices);
+        // Back face
+        String backTexture = getTextureForFace(blockType, 0, 0, -1);
+        addFace(worldX + 1, y, worldZ, worldX, y + 1, worldZ, 0, 0, -1, backTexture, positionsMap, textCoordsMap, indicesMap);
 
-        // Right face (x+1)
-        addFace(worldX + 1, y, worldZ + 1, worldX + 1, y + 1, worldZ, 
-               1, 0, 0, positions, textCoords, indices);
+        // Right face
+        String rightTexture = getTextureForFace(blockType, 1, 0, 0);
+        addFace(worldX + 1, y, worldZ + 1, worldX + 1, y + 1, worldZ, 1, 0, 0, rightTexture, positionsMap, textCoordsMap, indicesMap);
+
+        // Left face
+        String leftTexture = getTextureForFace(blockType, -1, 0, 0);
+        addFace(worldX, y, worldZ, worldX, y + 1, worldZ + 1, -1, 0, 0, leftTexture, positionsMap, textCoordsMap, indicesMap);
     }
 
-    private void addFace(float x1, float y1, float z1, float x2, float y2, float z2,
-                        int normX, int normY, int normZ,
-                        List<Float> positions, List<Float> textCoords, List<Integer> indices) {
+    private void addFace(float x1, float y1, float z1, float x2, float y2, float z2, int normX, int normY, int normZ, String texture, Map<String, List<Float>> positionsMap, Map<String, List<Float>> textCoordsMap, Map<String, List<Integer>> indicesMap) {
+        positionsMap.computeIfAbsent(texture, k -> new ArrayList<>());
+        textCoordsMap.computeIfAbsent(texture, k -> new ArrayList<>());
+        indicesMap.computeIfAbsent(texture, k -> new ArrayList<>());
+
+        List<Float> positions = positionsMap.get(texture);
+        List<Float> textCoords = textCoordsMap.get(texture);
+        List<Integer> indices = indicesMap.get(texture);
+
         int vertexOffset = positions.size() / 3;
-        
+
         // Determine face orientation and add vertices accordingly
         if (normY != 0) {
             // Horizontal face (top/bottom)
             positions.add(x1); positions.add(y1); positions.add(z1);
-            textCoords.add(0.0f); textCoords.add(0.0f);
-            
-            positions.add(x1); positions.add(y1); positions.add(z2);
             textCoords.add(0.0f); textCoords.add(1.0f);
-            
+
+            positions.add(x1); positions.add(y1); positions.add(z2);
+            textCoords.add(0.0f); textCoords.add(0.0f);
+
             positions.add(x2); positions.add(y2); positions.add(z2);
-            textCoords.add(1.0f); textCoords.add(1.0f);
-            
-            positions.add(x2); positions.add(y2); positions.add(z1);
             textCoords.add(1.0f); textCoords.add(0.0f);
+
+            positions.add(x2); positions.add(y2); positions.add(z1);
+            textCoords.add(1.0f); textCoords.add(1.0f);
         } else {
             // Vertical face
             positions.add(x1); positions.add(y1); positions.add(z1);
-            textCoords.add(0.0f); textCoords.add(0.0f);
-            
-            positions.add(x2); positions.add(y1); positions.add(z2);
-            textCoords.add(1.0f); textCoords.add(0.0f);
-            
-            positions.add(x2); positions.add(y2); positions.add(z2);
-            textCoords.add(1.0f); textCoords.add(1.0f);
-            
-            positions.add(x1); positions.add(y2); positions.add(z1);
             textCoords.add(0.0f); textCoords.add(1.0f);
+
+            positions.add(x2); positions.add(y1); positions.add(z2);
+            textCoords.add(1.0f); textCoords.add(1.0f);
+
+            positions.add(x2); positions.add(y2); positions.add(z2);
+            textCoords.add(1.0f); textCoords.add(0.0f);
+
+            positions.add(x1); positions.add(y2); positions.add(z1);
+            textCoords.add(0.0f); textCoords.add(0.0f);
         }
-        
+
         // Add indices for two triangles
         indices.add(vertexOffset);
         indices.add(vertexOffset + 1);
         indices.add(vertexOffset + 2);
-        
+
         indices.add(vertexOffset);
         indices.add(vertexOffset + 2);
         indices.add(vertexOffset + 3);
     }
+    private String getTextureForFace(int blockType, int normX, int normY, int normZ) {
+        switch (blockType) {
+            case 1: // Grass
+                if (normY == 1) return "grass_top";
+                if (normY == -1) return "dirt";
+                return "grass_side";
+            case 2: // Dirt
+                return "dirt";
+            case 3: // Stone
+                return "stone";
+            case 4: // Sand
+                return "sand";
+            default:
+                return "default";
+        }
+    }
+
 }
