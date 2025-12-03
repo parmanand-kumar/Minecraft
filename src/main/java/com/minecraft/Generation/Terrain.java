@@ -4,18 +4,20 @@ import com.minecraft.core.Block;
 import com.minecraft.core.Chunk;
 import com.minecraft.graphics.Mesh;
 import com.minecraft.graphics.TextureHandler;
-
-import java.util.HashMap;
-import java.util.Map;
-
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Terrain {
 
-    private static final int TERRAIN_WIDTH = 8;  // 8x8 chunks = 128x128 blocks
-    private static final int TERRAIN_DEPTH = 8;
+    private final int renderDistance;
+    private final Map<String, Chunk> chunks = new ConcurrentHashMap<>();
+    private final ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     
     // Terrain generation parameters
     private static final int WATER_LEVEL = 32;
@@ -24,42 +26,76 @@ public class Terrain {
     private static final int OCTAVES = 4;  // More octaves = more detail
     private static final double PERSISTENCE = 0.5;  // How much each octave contributes
     
-    private final Chunk[][] chunks;
     private final long seed;
+    // enableCulling: 0 = disabled (no culling, render all faces), 1 = enabled (cull internal faces)
+    // Default 0 => no culling so all blocks are fully rendered
+    private int enableCulling = 0;
 
-    public Terrain() {
-        this(System.currentTimeMillis());
-    }
-    
-    public Terrain(long seed) {
+    public Terrain(long seed, int renderDistance) {
         this.seed = seed;
-        chunks = new Chunk[TERRAIN_WIDTH][TERRAIN_DEPTH];
-        for (int x = 0; x < TERRAIN_WIDTH; x++) {
-            for (int z = 0; z < TERRAIN_DEPTH; z++) {
-                chunks[x][z] = new Chunk();
+        this.renderDistance = renderDistance;
+    }
+
+    public void setEnableCulling(int enableCulling) {
+        this.enableCulling = enableCulling;
+    }
+
+    public void update(int playerChunkX, int playerChunkZ) {
+        // Unload chunks outside render distance
+        chunks.keySet().removeIf(key -> {
+            String[] parts = key.split("_");
+            int chunkX = Integer.parseInt(parts[0]);
+            int chunkZ = Integer.parseInt(parts[1]);
+            boolean outOfRange = Math.abs(chunkX - playerChunkX) > renderDistance || Math.abs(chunkZ - playerChunkZ) > renderDistance;
+            if (outOfRange) {
+                Chunk chunk = chunks.get(key);
+                if (chunk != null) {
+                    chunk.getMeshes().values().forEach(Mesh::cleanup);
+                }
+            }
+            return outOfRange;
+        });
+
+        // Load new chunks within render distance and rebuild meshes
+        for (int x = -renderDistance; x <= renderDistance; x++) {
+            for (int z = -renderDistance; z <= renderDistance; z++) {
+                int chunkX = playerChunkX + x;
+                int chunkZ = playerChunkZ + z;
+                loadChunk(chunkX, chunkZ);
+                Chunk chunk = chunks.get(chunkX + "_" + chunkZ);
+                if (chunk != null && chunk.needsRebuild()) {
+                    executor.submit(() -> buildChunkMesh(chunkX, chunkZ));
+                }
             }
         }
     }
 
-    public void generateTerrain() {
-        for (int chunkX = 0; chunkX < TERRAIN_WIDTH; chunkX++) {
-            for (int chunkZ = 0; chunkZ < TERRAIN_DEPTH; chunkZ++) {
-                generateChunk(chunks[chunkX][chunkZ], chunkX, chunkZ);
-            }
+    private void loadChunk(int chunkX, int chunkZ) {
+        String key = chunkX + "_" + chunkZ;
+        if (!chunks.containsKey(key)) {
+            chunks.put(key, new Chunk()); // Placeholder
+            executor.submit(() -> {
+                Chunk chunk = new Chunk();
+                generateChunk(chunk, chunkX, chunkZ);
+                chunks.put(key, chunk);
+            });
         }
     }
 
-    public Map<String, Mesh> generateMeshes() {
+    public void buildChunkMesh(int chunkX, int chunkZ) {
+        Chunk chunk = chunks.get(chunkX + "_" + chunkZ);
+        if (chunk == null) return;
+
         Map<String, List<Float>> positionsMap = new HashMap<>();
         Map<String, List<Float>> textCoordsMap = new HashMap<>();
         Map<String, List<Integer>> indicesMap = new HashMap<>();
-        Map<String, Mesh> meshes = new HashMap<>();
+        // Generate raw mesh data in background thread
+        generateChunkMesh(chunkX, chunkZ, positionsMap, textCoordsMap, indicesMap);
 
-        for (int x = 0; x < TERRAIN_WIDTH; x++) {
-            for (int z = 0; z < TERRAIN_DEPTH; z++) {
-                generateChunkMesh(x, z, positionsMap, textCoordsMap, indicesMap);
-            }
-        }
+        // Convert Lists to primitive arrays and store as pending data on the chunk
+        Map<String, float[]> posArrMap = new HashMap<>();
+        Map<String, float[]> textCoordsArrMap = new HashMap<>();
+        Map<String, int[]> indicesArrMap = new HashMap<>();
 
         for (String texture : positionsMap.keySet()) {
             List<Float> positions = positionsMap.get(texture);
@@ -81,14 +117,13 @@ public class Terrain {
                 indicesArr[i] = indices.get(i);
             }
 
-            try {
-                TextureHandler textureHandler = new TextureHandler("src/main/resources/texture/blocks/" + texture + ".png");
-                meshes.put(texture, new Mesh(posArr, textCoordsArr, indicesArr, textureHandler));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            posArrMap.put(texture, posArr);
+            textCoordsArrMap.put(texture, textCoordsArr);
+            indicesArrMap.put(texture, indicesArr);
         }
-        return meshes;
+
+        // Store pending data on the chunk for main thread (GPU) upload
+        chunk.setPendingMeshData(posArrMap, textCoordsArrMap, indicesArrMap);
     }
 
     private void generateChunk(Chunk chunk, int chunkX, int chunkZ) {
@@ -215,7 +250,8 @@ public class Terrain {
     }
 
     private void generateChunkMesh(int chunkX, int chunkZ, Map<String, List<Float>> positionsMap, Map<String, List<Float>> textCoordsMap, Map<String, List<Integer>> indicesMap) {
-        Chunk chunk = chunks[chunkX][chunkZ];
+        Chunk chunk = chunks.get(chunkX + "_" + chunkZ);
+        if (chunk == null) return;
         for (int x = 0; x < Chunk.CHUNK_WIDTH; x++) {
             for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++) {
                 for (int z = 0; z < Chunk.CHUNK_DEPTH; z++) {
@@ -231,32 +267,71 @@ public class Terrain {
     private void generateBlockMesh(int chunkX, int chunkZ, int x, int y, int z, Map<String, List<Float>> positionsMap, Map<String, List<Float>> textCoordsMap, Map<String, List<Integer>> indicesMap) {
         float worldX = chunkX * Chunk.CHUNK_WIDTH + x;
         float worldZ = chunkZ * Chunk.CHUNK_DEPTH + z;
-        Block block = chunks[chunkX][chunkZ].getBlock(x, y, z);
+        Chunk chunk = chunks.get(chunkX + "_" + chunkZ);
+        if (chunk == null) return;
+        Block block = chunk.getBlock(x, y, z);
+        if (block == null) return;
         int blockType = block.getType();
-
+        // Only add faces that are exposed to air (or if neighboring chunk is missing)
         // Top face
-        String topTexture = getTextureForFace(blockType, 0, 1, 0);
-        addFace(worldX, y + 1, worldZ, worldX + 1, y + 1, worldZ + 1, 0, 1, 0, topTexture, positionsMap, textCoordsMap, indicesMap);
+        if (isFaceExposed(chunkX, chunkZ, x, y, z, 0, 1, 0)) {
+            String topTexture = getTextureForFace(blockType, 0, 1, 0);
+            addFace(worldX, y + 1, worldZ, worldX + 1, y + 1, worldZ + 1, 0, 1, 0, topTexture, positionsMap, textCoordsMap, indicesMap);
+        }
 
         // Bottom face
-        String bottomTexture = getTextureForFace(blockType, 0, -1, 0);
-        addFace(worldX, y, worldZ + 1, worldX + 1, y, worldZ, 0, -1, 0, bottomTexture, positionsMap, textCoordsMap, indicesMap);
+        if (isFaceExposed(chunkX, chunkZ, x, y, z, 0, -1, 0)) {
+            String bottomTexture = getTextureForFace(blockType, 0, -1, 0);
+            addFace(worldX, y, worldZ + 1, worldX + 1, y, worldZ, 0, -1, 0, bottomTexture, positionsMap, textCoordsMap, indicesMap);
+        }
 
         // Front face
-        String frontTexture = getTextureForFace(blockType, 0, 0, 1);
-        addFace(worldX, y, worldZ + 1, worldX + 1, y + 1, worldZ + 1, 0, 0, 1, frontTexture, positionsMap, textCoordsMap, indicesMap);
+        if (isFaceExposed(chunkX, chunkZ, x, y, z, 0, 0, 1)) {
+            String frontTexture = getTextureForFace(blockType, 0, 0, 1);
+            addFace(worldX, y, worldZ + 1, worldX + 1, y + 1, worldZ + 1, 0, 0, 1, frontTexture, positionsMap, textCoordsMap, indicesMap);
+        }
 
         // Back face
-        String backTexture = getTextureForFace(blockType, 0, 0, -1);
-        addFace(worldX + 1, y, worldZ, worldX, y + 1, worldZ, 0, 0, -1, backTexture, positionsMap, textCoordsMap, indicesMap);
+        if (isFaceExposed(chunkX, chunkZ, x, y, z, 0, 0, -1)) {
+            String backTexture = getTextureForFace(blockType, 0, 0, -1);
+            addFace(worldX + 1, y, worldZ, worldX, y + 1, worldZ, 0, 0, -1, backTexture, positionsMap, textCoordsMap, indicesMap);
+        }
 
         // Right face
-        String rightTexture = getTextureForFace(blockType, 1, 0, 0);
-        addFace(worldX + 1, y, worldZ + 1, worldX + 1, y + 1, worldZ, 1, 0, 0, rightTexture, positionsMap, textCoordsMap, indicesMap);
+        if (isFaceExposed(chunkX, chunkZ, x, y, z, 1, 0, 0)) {
+            String rightTexture = getTextureForFace(blockType, 1, 0, 0);
+            addFace(worldX + 1, y, worldZ + 1, worldX + 1, y + 1, worldZ, 1, 0, 0, rightTexture, positionsMap, textCoordsMap, indicesMap);
+        }
 
         // Left face
-        String leftTexture = getTextureForFace(blockType, -1, 0, 0);
-        addFace(worldX, y, worldZ, worldX, y + 1, worldZ + 1, -1, 0, 0, leftTexture, positionsMap, textCoordsMap, indicesMap);
+        if (isFaceExposed(chunkX, chunkZ, x, y, z, -1, 0, 0)) {
+            String leftTexture = getTextureForFace(blockType, -1, 0, 0);
+            addFace(worldX, y, worldZ, worldX, y + 1, worldZ + 1, -1, 0, 0, leftTexture, positionsMap, textCoordsMap, indicesMap);
+        }
+    }
+
+    // Returns true if the face in the given direction from (x,y,z) is exposed (neighbor is air or neighbor chunk missing)
+    private boolean isFaceExposed(int chunkX, int chunkZ, int x, int y, int z, int dirX, int dirY, int dirZ) {
+    // If culling is disabled (enableCulling == 0), consider every face exposed so all faces are generated
+    if (enableCulling == 0) return true;
+        int neighborWorldX = chunkX * Chunk.CHUNK_WIDTH + x + dirX;
+        int neighborWorldZ = chunkZ * Chunk.CHUNK_DEPTH + z + dirZ;
+
+        int neighborChunkX = Math.floorDiv(neighborWorldX, Chunk.CHUNK_WIDTH);
+        int neighborChunkZ = Math.floorDiv(neighborWorldZ, Chunk.CHUNK_DEPTH);
+
+        int localX = Math.floorMod(neighborWorldX, Chunk.CHUNK_WIDTH);
+        int localZ = Math.floorMod(neighborWorldZ, Chunk.CHUNK_DEPTH);
+        int localY = y + dirY;
+
+        // If neighbor Y is outside world bounds, consider it exposed
+        if (localY < 0 || localY >= Chunk.CHUNK_HEIGHT) return true;
+
+        Chunk neighborChunk = chunks.get(neighborChunkX + "_" + neighborChunkZ);
+        if (neighborChunk == null) return true; // treat missing chunk as air (not built yet)
+
+        Block neighbor = neighborChunk.getBlock(localX, localY, localZ);
+        return neighbor == null;
     }
 
     private void addFace(float x1, float y1, float z1, float x2, float y2, float z2, int normX, int normY, int normZ, String texture, Map<String, List<Float>> positionsMap, Map<String, List<Float>> textCoordsMap, Map<String, List<Integer>> indicesMap) {
@@ -323,6 +398,45 @@ public class Terrain {
             default:
                 return "default";
         }
+    }
+
+    // Returns a combined map of all meshes from loaded chunks. Keys are prefixed with chunk coordinates
+    public Map<String, Mesh> generateMeshes() {
+        Map<String, Mesh> combined = new HashMap<>();
+        for (Map.Entry<String, Chunk> entry : chunks.entrySet()) {
+            String chunkKey = entry.getKey();
+            Chunk chunk = entry.getValue();
+            if (chunk == null) continue;
+            // If the chunk has pending raw mesh data produced by a background thread,
+            // upload that data to the GPU (create TextureHandler + Mesh) on the main thread.
+            if (chunk.hasPendingMeshData()) {
+                Map<String, float[]> posMap = chunk.getPendingPositions();
+                Map<String, float[]> tcMap = chunk.getPendingTextCoords();
+                Map<String, int[]> indMap = chunk.getPendingIndices();
+                Map<String, Mesh> meshes = new HashMap<>();
+                for (String texture : posMap.keySet()) {
+                    float[] posArr = posMap.get(texture);
+                    float[] tcArr = tcMap.get(texture);
+                    int[] indArr = indMap.get(texture);
+                    try {
+                        TextureHandler textureHandler = new TextureHandler("src/main/resources/texture/blocks/" + texture + ".png");
+                        meshes.put(texture, new Mesh(posArr, tcArr, indArr, textureHandler));
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                chunk.setMeshes(meshes);
+                chunk.clearPendingMeshData();
+            }
+
+            Map<String, Mesh> meshes = chunk.getMeshes();
+            if (meshes == null) continue;
+            for (Map.Entry<String, Mesh> m : meshes.entrySet()) {
+                // Use chunkKey + texture to avoid collisions between chunks using same texture
+                combined.put(chunkKey + "_" + m.getKey(), m.getValue());
+            }
+        }
+        return combined;
     }
 
 }

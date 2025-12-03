@@ -1,0 +1,6 @@
+{
+  "renderDistance": 8,
+  "nearClip": 0.1,
+  "farClip": 1000.0,
+  "enableCulling": 1
+}

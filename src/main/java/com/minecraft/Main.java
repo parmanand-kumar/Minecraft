@@ -1,6 +1,8 @@
 package com.minecraft;
 
 import com.minecraft.Generation.Terrain;
+import com.minecraft.Settings;
+import com.minecraft.core.Chunk;
 import com.minecraft.graphics.*;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL;
@@ -12,12 +14,15 @@ import static org.lwjgl.opengl.GL11.*;
  
 public class Main {
     private static boolean cursorLocked = true;
-    private static final int RENDER_DISTANCE = 3; // Render distance in chunks
-    private static final float NEAR_PLANE = 0.1f; // Near clipping plane
-    private static final float FAR_PLANE = 1000.0f; // Far clipping plane, changed to float
  
     public static void main(String[] args) {
         DisplayManager.createDisplay();
+
+        // Load settings (path relative to project root). If missing, defaults are used.
+        Settings settings = Settings.load("src/main/java/com/minecraft/settings.json");
+        final float NEAR_PLANE = settings.getNearClip();
+        final float FAR_PLANE = settings.getFarClip();
+        final int RENDER_DISTANCE = settings.getRenderDistance();
         GL.createCapabilities();
  
         Camera camera = new Camera(DisplayManager.getWindow());
@@ -68,35 +73,40 @@ public class Main {
  
         DisplayManager.handleCursorState(cursorLocked);
  
-        Terrain terrain = new Terrain();
-        terrain.generateTerrain();
-        Map<String, Mesh> terrainMeshes = terrain.generateMeshes();
-        int spawnX = 64;
-        int spawnZ = 64;
-        int spawnY = terrain.getHeight(spawnX, spawnZ) + 2; // Spawn 2 blocks above the ground
+    Terrain terrain = new Terrain(System.currentTimeMillis(), RENDER_DISTANCE);
+    terrain.setEnableCulling(settings.getEnableCulling());
+        int spawnX = 0;
+        int spawnZ = 0;
+        int spawnY = terrain.getHeight(spawnX, spawnZ) + 2;
         camera.setPosition(spawnX, spawnY, spawnZ);
 
         while (!DisplayManager.isCloseRequested()) {
+            int playerChunkX = (int) Math.floor(camera.getPosition().x / Chunk.CHUNK_WIDTH);
+            int playerChunkZ = (int) Math.floor(camera.getPosition().z / Chunk.CHUNK_DEPTH);
+            terrain.update(playerChunkX, playerChunkZ);
+
+            Map<String, Mesh> terrainMeshes = terrain.generateMeshes();
+
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             ShaderProgram shaderProgram = shaderProgramRef.get();
             shaderProgram.start();
- 
+
             shaderProgram.setUniform("projectionMatrix",
                     transformation.getProjectionMatrix((float) Math.toRadians(70.0f),
                             (float) DisplayManager.getWidth(), (float) DisplayManager.getHeight(), NEAR_PLANE, FAR_PLANE));
             shaderProgram.setUniform("viewMatrix", transformation.getViewMatrix(camera));
-            shaderProgram.setUniform("modelMatrix", new org.joml.Matrix4f().identity()); // Placeholder, will be updated
+            shaderProgram.setUniform("modelMatrix", new org.joml.Matrix4f().identity());
             shaderProgram.setUniform("texture_sampler", 0);
-            
+
             for (Mesh mesh : terrainMeshes.values()) {
                 mesh.render();
             }
-            
+
             camera.update(cursorLocked);
-            
+
             shaderProgram.stop();
- 
+
             DisplayManager.updateDisplay();
         }
         if (shaderProgramRef.get() != null) {
