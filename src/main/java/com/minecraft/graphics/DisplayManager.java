@@ -2,6 +2,7 @@ package com.minecraft.graphics;
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWErrorCallback;
+import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 
@@ -16,6 +17,7 @@ public class DisplayManager {
         }
 
         GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
+
         window = GLFW.glfwCreateWindow(1280, 720, "Minecraft", 0, 0);
         if (window == 0) {
             throw new RuntimeException("Failed to create the GLFW window");
@@ -50,5 +52,12 @@ public class DisplayManager {
 
     public static long getWindow() {
         return window;
+    }
+
+    public static float getAspectRatio() {
+        int[] width = new int[1];
+        int[] height = new int[1];
+        GLFW.glfwGetWindowSize(window, width, height);
+        return (float) width[0] / (float) height[0];
     }
 }

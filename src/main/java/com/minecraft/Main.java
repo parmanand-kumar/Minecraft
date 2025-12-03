@@ -28,15 +28,17 @@ public class Main {
             }
         });
 
-        glEnable(GL_DEPTH_TEST);
+        GLFW.glfwSetFramebufferSizeCallback(DisplayManager.getWindow(), (window, width, height) -> {
+            glViewport(0, 0, width, height);
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            float aspectRatio = (float) width / (float) height;
+            glFrustum(-aspectRatio, aspectRatio, -1, 1, 1.0, 100.0);
+            glMatrixMode(GL_MODELVIEW);
+            glLoadIdentity();
+        });
 
-        // Set up the projection matrix
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        float aspectRatio = 1280.0f / 720.0f;
-        glFrustum(-aspectRatio, aspectRatio, -1, 1, 1.0, 100.0);
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
+        glEnable(GL_DEPTH_TEST);
 
         DisplayManager.handleCursorState(cursorLocked);
 
