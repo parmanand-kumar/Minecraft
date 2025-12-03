@@ -30,7 +30,7 @@ public class Main {
 
         glEnable(GL_DEPTH_TEST);
 
-        // Set up the projection matrix
+        // Set up the projection matrix younare dumjhkdsa
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         float aspectRatio = 1280.0f / 720.0f;
