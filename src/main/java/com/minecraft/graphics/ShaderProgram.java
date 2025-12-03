@@ -46,6 +46,10 @@ public class ShaderProgram {
         }
     }
 
+    public void setUniform(String uniformName, int value) {
+        GL20.glUniform1i(uniforms.get(uniformName), value);
+    }
+
     public void start() {
         GL20.glUseProgram(programID);
         createUniform("projectionMatrix");
