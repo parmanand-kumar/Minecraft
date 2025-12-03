@@ -24,12 +24,13 @@ public class Main {
  
         AtomicReference<ShaderProgram> shaderProgramRef = new AtomicReference<>(null);
         try {
-            ShaderProgram shaderProgram = new ShaderProgram("src/main/resources/shaders/basic.vert",
-                    "src/main/resources/shaders/basic.frag");
+            ShaderProgram shaderProgram = new ShaderProgram("src/main/resources/shaders/terrain.vert",
+                    "src/main/resources/shaders/terrain.frag");
             shaderProgram.start(); // Start the shader program to create uniforms
             shaderProgram.createUniform("projectionMatrix");
             shaderProgram.createUniform("viewMatrix");
             shaderProgram.createUniform("modelMatrix");
+            shaderProgram.createUniform("texture_sampler");
             shaderProgram.stop(); // Stop the shader program after creating uniforms
             shaderProgramRef.set(shaderProgram);
         } catch (Exception e) {
@@ -86,11 +87,12 @@ public class Main {
                             (float) DisplayManager.getWidth(), (float) DisplayManager.getHeight(), NEAR_PLANE, FAR_PLANE));
             shaderProgram.setUniform("viewMatrix", transformation.getViewMatrix(camera));
             shaderProgram.setUniform("modelMatrix", new org.joml.Matrix4f().identity()); // Placeholder, will be updated
- 
+            shaderProgram.setUniform("texture_sampler", 0);
+            
             terrainMesh.render();
- 
+            
             camera.update(cursorLocked);
- 
+            
             shaderProgram.stop();
  
             DisplayManager.updateDisplay();
