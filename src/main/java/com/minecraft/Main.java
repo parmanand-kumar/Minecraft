@@ -71,6 +71,10 @@ public class Main {
         Terrain terrain = new Terrain();
         terrain.generateTerrain();
         Map<String, Mesh> terrainMeshes = terrain.generateMeshes();
+        int spawnX = 64;
+        int spawnZ = 64;
+        int spawnY = terrain.getHeight(spawnX, spawnZ) + 2; // Spawn 2 blocks above the ground
+        camera.setPosition(spawnX, spawnY, spawnZ);
 
         while (!DisplayManager.isCloseRequested()) {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

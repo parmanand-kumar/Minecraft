@@ -133,6 +133,10 @@ public class Terrain {
         
         return Math.min(height, Chunk.CHUNK_HEIGHT - 1);
     }
+
+    public int getHeight(int worldX, int worldZ) {
+        return generateHeight(worldX, worldZ);
+    }
     
     private int getBlockType(int y, int terrainHeight) {
         // Grass on top layer

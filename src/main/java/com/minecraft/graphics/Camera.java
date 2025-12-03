@@ -73,4 +73,10 @@ public class Camera {
     public Vector3f getRotation() {
         return new Vector3f(pitch, yaw, 0);
     }
+
+    public void setPosition(float x, float y, float z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+    }
 }
