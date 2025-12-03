@@ -60,4 +60,18 @@ public class DisplayManager {
         GLFW.glfwGetWindowSize(window, width, height);
         return (float) width[0] / (float) height[0];
     }
+
+    public static int getWidth() {
+        int[] width = new int[1];
+        int[] height = new int[1];
+        GLFW.glfwGetWindowSize(window, width, height);
+        return width[0];
+    }
+
+    public static int getHeight() {
+        int[] width = new int[1];
+        int[] height = new int[1];
+        GLFW.glfwGetWindowSize(window, width, height);
+        return height[0];
+    }
 }
