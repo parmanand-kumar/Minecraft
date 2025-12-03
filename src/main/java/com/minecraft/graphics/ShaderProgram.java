@@ -4,13 +4,19 @@ import org.lwjgl.opengl.GL20;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.FloatBuffer;
+import org.joml.Matrix4f;
+import org.lwjgl.system.MemoryStack;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ShaderProgram {
     private int programID;
     private int vertexShaderID;
     private int fragmentShaderID;
-
-    public ShaderProgram(String vertexFile, String fragmentFile) {
+    private final Map<String, Integer> uniforms;
+ 
+    public ShaderProgram(String vertexFile, String fragmentFile) throws Exception {
         vertexShaderID = loadShader(vertexFile, GL20.GL_VERTEX_SHADER);
         fragmentShaderID = loadShader(fragmentFile, GL20.GL_FRAGMENT_SHADER);
         programID = GL20.glCreateProgram();
@@ -18,10 +24,32 @@ public class ShaderProgram {
         GL20.glAttachShader(programID, fragmentShaderID);
         GL20.glLinkProgram(programID);
         GL20.glValidateProgram(programID);
+        uniforms = new HashMap<>();
+    }
+    
+    public void createUniform(String uniformName) {
+        int uniformLocation = GL20.glGetUniformLocation(programID,
+            uniformName);
+        if (uniformLocation < 0) {
+            throw new RuntimeException("Could not find uniform:" +
+                uniformName);
+        }
+        uniforms.put(uniformName, uniformLocation);
+    }
+
+    public void setUniform(String uniformName, Matrix4f value) {
+        // Dump the matrix into a float buffer
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            FloatBuffer fb = stack.mallocFloat(16);
+            value.get(fb);
+            GL20.glUniformMatrix4fv(uniforms.get(uniformName), false, fb);
+        }
     }
 
     public void start() {
         GL20.glUseProgram(programID);
+        createUniform("projectionMatrix");
+        createUniform("viewMatrix");
     }
 
     public void stop() {

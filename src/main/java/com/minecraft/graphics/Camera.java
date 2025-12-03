@@ -5,6 +5,7 @@ import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 
 import java.nio.DoubleBuffer;
+import org.joml.Vector3f;
 
 public class Camera {
     private float x, y, z;
@@ -63,5 +64,13 @@ public class Camera {
             y = newPos[1];
             z = newPos[2];
         }
+    }
+
+    public Vector3f getPosition() {
+        return new Vector3f(x, y, z);
+    }
+
+    public Vector3f getRotation() {
+        return new Vector3f(pitch, yaw, 0);
     }
 }
