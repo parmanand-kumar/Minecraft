@@ -43,7 +43,11 @@ public class TextureHandler {
 
             buf = stbi_load(fileName, w, h, channels, 4);
             if (buf == null) {
-                throw new Exception("Image file [" + fileName + "] not loaded: " + stbi_failure_reason());
+                String fallbackPath = fileName.replace("texture/blocks", "texture/fallback_blocks");
+                buf = stbi_load(fallbackPath, w, h, channels, 4);
+                if (buf == null) {
+                    throw new Exception("Image file not loaded at " + fileName + " or " + fallbackPath + ": " + stbi_failure_reason());
+                }
             }
 
             width = w.get();

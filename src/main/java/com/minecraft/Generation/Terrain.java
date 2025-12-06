@@ -432,7 +432,7 @@ public class Terrain {
                         TextureHandler textureHandler = new TextureHandler("src/main/resources/texture/blocks/" + texture + ".png");
                         meshes.put(texture, new Mesh(posArr, tcArr, indArr, textureHandler));
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        System.err.println("Failed to load texture for block type '" + texture + "': " + e.getMessage());
                     }
                 }
                 chunk.setMeshes(meshes);
