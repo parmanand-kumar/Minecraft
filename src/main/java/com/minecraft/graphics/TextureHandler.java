@@ -8,6 +8,7 @@ import java.nio.IntBuffer;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL30.glGenerateMipmap;
 import static org.lwjgl.stb.STBImage.stbi_image_free;
+import static org.lwjgl.stb.STBImage.stbi_failure_reason;
 import static org.lwjgl.stb.STBImage.stbi_load;
 
 public class TextureHandler {
@@ -42,7 +43,11 @@ public class TextureHandler {
 
             buf = stbi_load(fileName, w, h, channels, 4);
             if (buf == null) {
-                throw new Exception("Image file [" + fileName + "] not loaded: " + stbi_load(fileName, w, h, channels, 4));
+                String fallbackPath = fileName.replace("texture/blocks", "texture/fallback_blocks");
+                buf = stbi_load(fallbackPath, w, h, channels, 4);
+                if (buf == null) {
+                    throw new Exception("Image file not loaded at " + fileName + " or " + fallbackPath + ": " + stbi_failure_reason());
+                }
             }
 
             width = w.get();
@@ -57,8 +62,9 @@ public class TextureHandler {
         // Tell OpenGL how to unpack the RGBA bytes. Each component is 1 byte size
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        // Set texture parameters for pixelated look with mipmaps
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
         // Upload the texture data
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
