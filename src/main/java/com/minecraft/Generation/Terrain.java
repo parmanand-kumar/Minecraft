@@ -447,4 +447,8 @@ public class Terrain {
         }
         return combined;
     }
+
+    public void cleanup() {
+        executor.shutdown();
+    }
 }

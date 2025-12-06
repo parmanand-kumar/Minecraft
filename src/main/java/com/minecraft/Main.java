@@ -112,6 +112,7 @@ public class Main {
         if (shaderProgramRef.get() != null) {
             shaderProgramRef.get().cleanUp();
         }
+        terrain.cleanup();
         DisplayManager.closeDisplay();
     }
 

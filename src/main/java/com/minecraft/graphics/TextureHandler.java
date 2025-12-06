@@ -8,6 +8,7 @@ import java.nio.IntBuffer;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL30.glGenerateMipmap;
 import static org.lwjgl.stb.STBImage.stbi_image_free;
+import static org.lwjgl.stb.STBImage.stbi_failure_reason;
 import static org.lwjgl.stb.STBImage.stbi_load;
 
 public class TextureHandler {
@@ -42,7 +43,7 @@ public class TextureHandler {
 
             buf = stbi_load(fileName, w, h, channels, 4);
             if (buf == null) {
-                throw new Exception("Image file [" + fileName + "] not loaded: " + stbi_load(fileName, w, h, channels, 4));
+                throw new Exception("Image file [" + fileName + "] not loaded: " + stbi_failure_reason());
             }
 
             width = w.get();
