@@ -19,21 +19,43 @@ public class Terrain {
     private final Map<String, Chunk> chunks = new ConcurrentHashMap<>();
     private final ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     
-    // Terrain generation parameters
+    // Terrain generation parameters - tuned for Minecraft-like terrain
     private static final int WATER_LEVEL = 32;
-    private static final int MAX_HEIGHT = 48;
-    private static final double FREQUENCY = 0.05;  // Controls how "zoomed in" the noise is
-    private static final int OCTAVES = 4;  // More octaves = more detail
-    private static final double PERSISTENCE = 0.5;  // How much each octave contributes
+    private static final int MAX_HEIGHT = 64;
     
+    // Base terrain (rolling hills)
+    private static final double BASE_FREQUENCY = 0.008;
+    private static final int BASE_OCTAVES = 4;
+    private static final double BASE_PERSISTENCE = 0.5;
+    private static final double BASE_AMPLITUDE = 20.0;
+    
+    // Detail layer (adds small variations)
+    private static final double DETAIL_FREQUENCY = 0.04;
+    private static final int DETAIL_OCTAVES = 3;
+    private static final double DETAIL_PERSISTENCE = 0.4;
+    private static final double DETAIL_AMPLITUDE = 5.0;
+    
+    // Mountain layer (creates dramatic peaks)
+    private static final double MOUNTAIN_FREQUENCY = 0.003;
+    private static final int MOUNTAIN_OCTAVES = 2;
+    private static final double MOUNTAIN_PERSISTENCE = 0.55;
+    private static final double MOUNTAIN_AMPLITUDE = 25.0;
+
     private final long seed;
-    // enableCulling: 0 = disabled (no culling, render all faces), 1 = enabled (cull internal faces)
-    // Default 0 => no culling so all blocks are fully rendered
+    private final int[] p = new int[512];
+    private final double[][] G = {
+            {1, 1, 0}, {-1, 1, 0}, {1, -1, 0}, {-1, -1, 0},
+            {1, 0, 1}, {-1, 0, 1}, {1, 0, -1}, {-1, 0, -1},
+            {0, 1, 1}, {0, -1, 1}, {0, 1, -1}, {0, -1, -1},
+            {1, 1, 0}, {-1, 1, 0}, {0, -1, 1}, {0, -1, -1}
+    };
+
     private int enableCulling = 0;
 
     public Terrain(long seed, int renderDistance) {
         this.seed = seed;
         this.renderDistance = renderDistance;
+        initPerlin();
     }
 
     public void setEnableCulling(int enableCulling) {
@@ -41,7 +63,6 @@ public class Terrain {
     }
 
     public void update(int playerChunkX, int playerChunkZ) {
-        // Unload chunks outside render distance
         chunks.keySet().removeIf(key -> {
             String[] parts = key.split("_");
             int chunkX = Integer.parseInt(parts[0]);
@@ -56,7 +77,6 @@ public class Terrain {
             return outOfRange;
         });
 
-        // Load new chunks within render distance and rebuild meshes
         for (int x = -renderDistance; x <= renderDistance; x++) {
             for (int z = -renderDistance; z <= renderDistance; z++) {
                 int chunkX = playerChunkX + x;
@@ -73,7 +93,7 @@ public class Terrain {
     private void loadChunk(int chunkX, int chunkZ) {
         String key = chunkX + "_" + chunkZ;
         if (!chunks.containsKey(key)) {
-            chunks.put(key, new Chunk()); // Placeholder
+            chunks.put(key, new Chunk());
             executor.submit(() -> {
                 Chunk chunk = new Chunk();
                 generateChunk(chunk, chunkX, chunkZ);
@@ -89,10 +109,8 @@ public class Terrain {
         Map<String, List<Float>> positionsMap = new HashMap<>();
         Map<String, List<Float>> textCoordsMap = new HashMap<>();
         Map<String, List<Integer>> indicesMap = new HashMap<>();
-        // Generate raw mesh data in background thread
         generateChunkMesh(chunkX, chunkZ, positionsMap, textCoordsMap, indicesMap);
 
-        // Convert Lists to primitive arrays and store as pending data on the chunk
         Map<String, float[]> posArrMap = new HashMap<>();
         Map<String, float[]> textCoordsArrMap = new HashMap<>();
         Map<String, int[]> indicesArrMap = new HashMap<>();
@@ -122,51 +140,62 @@ public class Terrain {
             indicesArrMap.put(texture, indicesArr);
         }
 
-        // Store pending data on the chunk for main thread (GPU) upload
         chunk.setPendingMeshData(posArrMap, textCoordsArrMap, indicesArrMap);
     }
 
     private void generateChunk(Chunk chunk, int chunkX, int chunkZ) {
         for (int x = 0; x < Chunk.CHUNK_WIDTH; x++) {
             for (int z = 0; z < Chunk.CHUNK_DEPTH; z++) {
-                // Calculate world position
                 int worldX = chunkX * Chunk.CHUNK_WIDTH + x;
                 int worldZ = chunkZ * Chunk.CHUNK_DEPTH + z;
                 
-                // Generate height using multi-octave Perlin-like noise
                 int height = generateHeight(worldX, worldZ);
                 
-                // Fill ALL blocks from y=0 (bedrock) to the surface height
                 for (int y = 0; y < Chunk.CHUNK_HEIGHT; y++) {
                     if (y <= height) {
                         int blockType = getBlockType(y, height);
                         chunk.setBlock(x, y, z, new Block(blockType));
                     }
-                    // Leave air above the terrain (y > height means no block)
                 }
             }
         }
     }
     
     private int generateHeight(int worldX, int worldZ) {
+        // Base terrain - rolling hills
+        double baseNoise = octaveNoise(worldX, worldZ, BASE_FREQUENCY, BASE_OCTAVES, BASE_PERSISTENCE);
+        double baseHeight = baseNoise * BASE_AMPLITUDE;
+        
+        // Detail layer - small variations
+        double detailNoise = octaveNoise(worldX + 1000, worldZ + 1000, DETAIL_FREQUENCY, DETAIL_OCTAVES, DETAIL_PERSISTENCE);
+        double detailHeight = detailNoise * DETAIL_AMPLITUDE;
+        
+        // Mountain layer - dramatic peaks
+        double mountainNoise = octaveNoise(worldX + 2000, worldZ + 2000, MOUNTAIN_FREQUENCY, MOUNTAIN_OCTAVES, MOUNTAIN_PERSISTENCE);
+        // Make mountains sparse - only where noise is high
+        mountainNoise = Math.max(0, (mountainNoise - 0.3) * 2.5);
+        double mountainHeight = mountainNoise * MOUNTAIN_AMPLITUDE;
+        
+        // Combine all layers
+        int finalHeight = WATER_LEVEL + (int)(baseHeight + detailHeight + mountainHeight);
+        
+        return Math.max(0, Math.min(finalHeight, Chunk.CHUNK_HEIGHT - 1));
+    }
+    
+    private double octaveNoise(double x, double z, double frequency, int octaves, double persistence) {
         double noise = 0;
         double amplitude = 1;
-        double frequency = FREQUENCY;
+        double freq = frequency;
         double maxValue = 0;
         
-        // Multi-octave noise for more natural terrain
-        for (int i = 0; i < OCTAVES; i++) {
-            noise += perlinNoise(worldX * frequency, worldZ * frequency) * amplitude;
+        for (int i = 0; i < octaves; i++) {
+            noise += perlinNoise(x * freq, z * freq) * amplitude;
             maxValue += amplitude;
-            amplitude *= PERSISTENCE;
-            frequency *= 2;
+            amplitude *= persistence;
+            freq *= 2;
         }
         
-        // Normalize and scale to height range
-        noise = noise / maxValue;
-        int height = (int) ((noise + 1) / 2 * (MAX_HEIGHT - WATER_LEVEL)) + WATER_LEVEL;
-        
-        return Math.min(height, Chunk.CHUNK_HEIGHT - 1);
+        return noise / maxValue;
     }
 
     public int getHeight(int worldX, int worldZ) {
@@ -174,73 +203,67 @@ public class Terrain {
     }
     
     private int getBlockType(int y, int terrainHeight) {
-        // Grass on top layer
         if (y == terrainHeight) {
             if (terrainHeight >= WATER_LEVEL) {
                 return 1;  // Grass block
             } else {
-                return 4;  // Sand/gravel underwater
+                return 4;  // Sand underwater
             }
         }
-        // Dirt layer (3-5 blocks deep from surface)
         else if (y > terrainHeight - 5 && y < terrainHeight) {
             return 2;  // Dirt block
         }
-        // Everything below is stone
         else {
             return 3;  // Stone block
         }
     }
     
-    // Simple Perlin-like noise implementation
     private double perlinNoise(double x, double z) {
-        // Get integer parts
-        int xi = (int) Math.floor(x);
-        int zi = (int) Math.floor(z);
+        int xi = (int) Math.floor(x) & 255;
+        int zi = (int) Math.floor(z) & 255;
         
-        // Get fractional parts
-        double xf = x - xi;
-        double zf = z - zi;
+        double xf = x - Math.floor(x);
+        double zf = z - Math.floor(z);
         
-        // Smooth interpolation
         double u = fade(xf);
         double v = fade(zf);
         
-        // Hash coordinates of the 4 cube corners
-        double n00 = dotGridGradient(xi, zi, x, z);
-        double n10 = dotGridGradient(xi + 1, zi, x, z);
-        double n01 = dotGridGradient(xi, zi + 1, x, z);
-        double n11 = dotGridGradient(xi + 1, zi + 1, x, z);
+        // Get gradient indices for the 4 corners
+        int aa = p[p[xi] + zi];
+        int ab = p[p[xi] + zi + 1];
+        int ba = p[p[xi + 1] + zi];
+        int bb = p[p[xi + 1] + zi + 1];
         
-        // Interpolate
-        double x1 = lerp(n00, n10, u);
-        double x2 = lerp(n01, n11, u);
+        // Calculate dot products with gradients
+        double x1 = lerp(grad(aa, xf, zf), grad(ba, xf - 1, zf), u);
+        double x2 = lerp(grad(ab, xf, zf - 1), grad(bb, xf - 1, zf - 1), u);
         
         return lerp(x1, x2, v);
     }
     
-    private double dotGridGradient(int ix, int iz, double x, double z) {
-        // Get gradient from hash
-        Random rand = new Random(hash(ix, iz, seed));
-        double angle = rand.nextDouble() * 2 * Math.PI;
-        double gradX = Math.cos(angle);
-        double gradZ = Math.sin(angle);
-        
-        // Distance vector
-        double dx = x - ix;
-        double dz = z - iz;
-        
-        // Dot product
-        return dx * gradX + dz * gradZ;
+    private double grad(int hash, double x, double z) {
+        int h = hash & 15;
+        double u = h < 8 ? x : z;
+        double v = h < 4 ? z : (h == 12 || h == 14 ? x : 0);
+        return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
     }
-    
-    private long hash(int x, int z, long seed) {
-        long hash = seed;
-        hash = hash * 31 + x;
-        hash = hash * 31 + z;
-        return hash;
+
+    private void initPerlin() {
+        Random rand = new Random(seed);
+        for (int i = 0; i < 256; i++) {
+            p[i] = i;
+        }
+        for (int i = 0; i < 256; i++) {
+            int r = rand.nextInt(256 - i) + i;
+            int temp = p[i];
+            p[i] = p[r];
+            p[r] = temp;
+        }
+        for (int i = 0; i < 256; i++) {
+            p[i + 256] = p[i];
+        }
     }
-    
+
     private double fade(double t) {
         return t * t * t * (t * (t * 6 - 15) + 10);
     }
@@ -272,48 +295,41 @@ public class Terrain {
         Block block = chunk.getBlock(x, y, z);
         if (block == null) return;
         int blockType = block.getType();
-        // Only add faces that are exposed to air (or if neighboring chunk is missing)
-        // Top face
+        
         if (isFaceExposed(chunkX, chunkZ, x, y, z, 0, 1, 0)) {
             String topTexture = getTextureForFace(blockType, 0, 1, 0);
             addFace(worldX, y + 1, worldZ, worldX + 1, y + 1, worldZ + 1, 0, 1, 0, topTexture, positionsMap, textCoordsMap, indicesMap);
         }
 
-        // Bottom face
         if (isFaceExposed(chunkX, chunkZ, x, y, z, 0, -1, 0)) {
             String bottomTexture = getTextureForFace(blockType, 0, -1, 0);
             addFace(worldX, y, worldZ + 1, worldX + 1, y, worldZ, 0, -1, 0, bottomTexture, positionsMap, textCoordsMap, indicesMap);
         }
 
-        // Front face
         if (isFaceExposed(chunkX, chunkZ, x, y, z, 0, 0, 1)) {
             String frontTexture = getTextureForFace(blockType, 0, 0, 1);
             addFace(worldX, y, worldZ + 1, worldX + 1, y + 1, worldZ + 1, 0, 0, 1, frontTexture, positionsMap, textCoordsMap, indicesMap);
         }
 
-        // Back face
         if (isFaceExposed(chunkX, chunkZ, x, y, z, 0, 0, -1)) {
             String backTexture = getTextureForFace(blockType, 0, 0, -1);
             addFace(worldX + 1, y, worldZ, worldX, y + 1, worldZ, 0, 0, -1, backTexture, positionsMap, textCoordsMap, indicesMap);
         }
 
-        // Right face
         if (isFaceExposed(chunkX, chunkZ, x, y, z, 1, 0, 0)) {
             String rightTexture = getTextureForFace(blockType, 1, 0, 0);
             addFace(worldX + 1, y, worldZ + 1, worldX + 1, y + 1, worldZ, 1, 0, 0, rightTexture, positionsMap, textCoordsMap, indicesMap);
         }
 
-        // Left face
         if (isFaceExposed(chunkX, chunkZ, x, y, z, -1, 0, 0)) {
             String leftTexture = getTextureForFace(blockType, -1, 0, 0);
             addFace(worldX, y, worldZ, worldX, y + 1, worldZ + 1, -1, 0, 0, leftTexture, positionsMap, textCoordsMap, indicesMap);
         }
     }
 
-    // Returns true if the face in the given direction from (x,y,z) is exposed (neighbor is air or neighbor chunk missing)
     private boolean isFaceExposed(int chunkX, int chunkZ, int x, int y, int z, int dirX, int dirY, int dirZ) {
-    // If culling is disabled (enableCulling == 0), consider every face exposed so all faces are generated
-    if (enableCulling == 0) return true;
+        if (enableCulling == 0) return true;
+        
         int neighborWorldX = chunkX * Chunk.CHUNK_WIDTH + x + dirX;
         int neighborWorldZ = chunkZ * Chunk.CHUNK_DEPTH + z + dirZ;
 
@@ -324,11 +340,10 @@ public class Terrain {
         int localZ = Math.floorMod(neighborWorldZ, Chunk.CHUNK_DEPTH);
         int localY = y + dirY;
 
-        // If neighbor Y is outside world bounds, consider it exposed
         if (localY < 0 || localY >= Chunk.CHUNK_HEIGHT) return true;
 
         Chunk neighborChunk = chunks.get(neighborChunkX + "_" + neighborChunkZ);
-        if (neighborChunk == null) return true; // treat missing chunk as air (not built yet)
+        if (neighborChunk == null) return true;
 
         Block neighbor = neighborChunk.getBlock(localX, localY, localZ);
         return neighbor == null;
@@ -345,9 +360,7 @@ public class Terrain {
 
         int vertexOffset = positions.size() / 3;
 
-        // Determine face orientation and add vertices accordingly
         if (normY != 0) {
-            // Horizontal face (top/bottom)
             positions.add(x1); positions.add(y1); positions.add(z1);
             textCoords.add(0.0f); textCoords.add(1.0f);
 
@@ -360,7 +373,6 @@ public class Terrain {
             positions.add(x2); positions.add(y2); positions.add(z1);
             textCoords.add(1.0f); textCoords.add(1.0f);
         } else {
-            // Vertical face
             positions.add(x1); positions.add(y1); positions.add(z1);
             textCoords.add(0.0f); textCoords.add(1.0f);
 
@@ -374,7 +386,6 @@ public class Terrain {
             textCoords.add(0.0f); textCoords.add(0.0f);
         }
 
-        // Add indices for two triangles
         indices.add(vertexOffset);
         indices.add(vertexOffset + 1);
         indices.add(vertexOffset + 2);
@@ -383,32 +394,31 @@ public class Terrain {
         indices.add(vertexOffset + 2);
         indices.add(vertexOffset + 3);
     }
+    
     private String getTextureForFace(int blockType, int normX, int normY, int normZ) {
         switch (blockType) {
-            case 1: // Grass
+            case 1:
                 if (normY == 1) return "grass_top";
                 if (normY == -1) return "dirt";
                 return "grass_side";
-            case 2: // Dirt
+            case 2:
                 return "dirt";
-            case 3: // Stone
+            case 3:
                 return "stone";
-            case 4: // Sand
+            case 4:
                 return "sand";
             default:
                 return "default";
         }
     }
 
-    // Returns a combined map of all meshes from loaded chunks. Keys are prefixed with chunk coordinates
     public Map<String, Mesh> generateMeshes() {
         Map<String, Mesh> combined = new HashMap<>();
         for (Map.Entry<String, Chunk> entry : chunks.entrySet()) {
             String chunkKey = entry.getKey();
             Chunk chunk = entry.getValue();
             if (chunk == null) continue;
-            // If the chunk has pending raw mesh data produced by a background thread,
-            // upload that data to the GPU (create TextureHandler + Mesh) on the main thread.
+            
             if (chunk.hasPendingMeshData()) {
                 Map<String, float[]> posMap = chunk.getPendingPositions();
                 Map<String, float[]> tcMap = chunk.getPendingTextCoords();
@@ -432,11 +442,9 @@ public class Terrain {
             Map<String, Mesh> meshes = chunk.getMeshes();
             if (meshes == null) continue;
             for (Map.Entry<String, Mesh> m : meshes.entrySet()) {
-                // Use chunkKey + texture to avoid collisions between chunks using same texture
                 combined.put(chunkKey + "_" + m.getKey(), m.getValue());
             }
         }
         return combined;
     }
-
 }
